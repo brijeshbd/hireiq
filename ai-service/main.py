@@ -10,53 +10,86 @@ client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
 
+# ── CONVERSATION MEMORY ──────────────────────────────────────
+# This list stores the entire conversation history
+# Think of it like an ArrayList<Message> in Java
+conversation_history = []
+
+# System prompt — HireIQ's personality and rules
+SYSTEM_PROMPT = """You are HireIQ, an AI-powered job application assistant.
+You help job seekers with:
+- Resume analysis and improvement
+- Cover letter generation  
+- Interview preparation
+- Job search strategy
+- Career advice
+
+You are friendly, direct, and give specific actionable advice.
+You remember everything the user tells you in this conversation."""
+
+
+
 def ask_hireiq(user_message):
     """Send a message to Groq LLM and get a response"""
+    
+    conversation_history.append({"role": "user", "content": user_message})
     
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",  # Free, fast, powerful model
         messages=[
             {
                 "role": "system",
-                "content": "You are HireIQ, an AI-powered job application assistant. "
-                           "You help job seekers write better resumes, prepare for "
-                           "interviews, and find their dream remote jobs."
+                "content": SYSTEM_PROMPT
             },
-            {
-                "role": "user",
-                "content": user_message
-            }
+            *conversation_history,  # Include entire conversation history
         ],
         max_tokens=1024,
         temperature=0.7
     )
     
-    return response.choices[0].message.content
+    ai_response = response.choices[0].message.content
+    
+    conversation_history.append({"role": "assistant", "content": ai_response})
+    
+    return ai_response
+
+def chat():
+    """Interactive chat loop — talk to HireIQ in terminal.
+    Like a while(true) loop in Java waiting for user input.
+    """
+    print("=" * 50)
+    print("🤖 Welcome to HireIQ!")
+    print("💡 Type 'quit' to exit")
+    print("💡 Type 'history' to see conversation")
+    print("=" * 50)
+    print()
+    
+    # Keep chatting until user types 'quit'
+    while True:
+        user_input = input("You: ").strip()
+        
+        if user_input.lower() == "quit":
+            print("👋 Goodbye! Good luck with your job search!!")
+            break
+        elif user_input.lower() == "history":
+            print("\n📜 Conversation History:")
+            for msg in conversation_history:
+                role = "You" if msg["role"] == "user" else "HireIQ"
+                print(f"{role}: {msg['content'][:80]}...")
+            print()
+            continue
+        
+       # Skip empty input
+        if not user_input:
+            continue
+        
+        # Get response from HireIQ
+        print("\nHireIQ: ", end="", flush=True)
+        response = ask_hireiq(user_input)
+        print(response)
+        print()
+
 
 # Test it!
 if __name__ == "__main__":
-    print("🤖 HireIQ is starting...\n")
-    print("=" * 50)
-    
-    # Test 1 — General question
-    print("\n📌 Test 1:")
-    question1 = "What skills should a Java backend engineer learn in 2026?"
-    print(f"You: {question1}\n")
-    response1 = ask_hireiq(question1)
-    print(f"HireIQ: {response1}")
-    
-    print("\n" + "=" * 50)
-    
-    # Test 2 — Your personal situation
-    print("\n📌 Test 2:")
-    question2 = (
-        "I have 3 years of Java Spring Boot experience across "
-        "Fintech, MarTech and SaaS companies. I want a remote job "
-        "in the US or Japan. What should I focus on?"
-    )
-    print(f"You: {question2}\n")
-    response2 = ask_hireiq(question2)
-    print(f"HireIQ: {response2}")
-    
-    print("\n" + "=" * 50)
-    print("\n✅ HireIQ is working! Week 1 done 🎉")
+    chat()
