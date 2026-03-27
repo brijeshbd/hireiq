@@ -34,6 +34,12 @@ class JDRequest(BaseModel):
 class ResumeAnalysisRequest(BaseModel):
     resume: str
     job_description: str
+    
+class CoverLetterRequest(BaseModel):
+    resume: str
+    job_description: str
+    company_name: str
+    tone: str = "professional"  # default value — like Java optional param
 
 # ── PROMPTS ───────────────────────────────────────────────────
 JD_ANALYZER_PROMPT = """You are an expert job description analyzer.
@@ -79,6 +85,24 @@ Return EXACTLY this JSON:
     "improvements": ["suggestion1", "suggestion2"],
     "summary": "overall assessment in one paragraph"
 }"""
+
+COVER_LETTER_PROMPT = """You are an expert cover letter writer.
+
+TASK: Write a tailored, professional cover letter.
+
+RULES:
+1. Use the candidate's actual experience from their resume
+2. Match the tone requested (professional/confident/friendly)
+3. Highlight skills that match the job description
+4. Keep it to 3 paragraphs — concise and impactful
+5. Do NOT use generic phrases like "I am writing to express my interest"
+6. Start with a strong, direct opening line
+7. End with a confident call to action
+
+Structure:
+- Paragraph 1: Who you are + strongest relevant achievement
+- Paragraph 2: Why you're perfect for THIS role at THIS company  
+- Paragraph 3: Why you want THIS company + call to action"""
 
 # ── HELPER FUNCTIONS ──────────────────────────────────────────
 def call_llm(system_prompt, user_message, temperature=0.7):
@@ -177,4 +201,40 @@ Return ONLY JSON with match score and analysis."""
     return {
         "status": "success",
         "analysis": result
+    }
+    
+# Cover Letter Generator
+# Java: @PostMapping("/api/cover-letter")
+@app.post("/api/cover-letter")
+def generate_cover_letter(request: CoverLetterRequest):
+    """
+    Generate a tailored cover letter based on
+    resume, job description, and company name.
+    """
+    
+    user_message = f"""Write a cover letter for this candidate.
+
+CANDIDATE RESUME:
+{request.resume}
+
+JOB DESCRIPTION:
+{request.job_description}
+
+COMPANY NAME: {request.company_name}
+
+TONE: {request.tone}
+
+Write a compelling, tailored cover letter that highlights 
+the candidate's most relevant experience."""
+
+    cover_letter = call_llm(
+        COVER_LETTER_PROMPT,
+        user_message,
+        temperature=0.7  # slightly creative for natural writing
+    )
+    
+    return {
+        "status": "success",
+        "cover_letter": cover_letter,
+        "company": request.company_name
     }
