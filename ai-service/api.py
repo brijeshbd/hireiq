@@ -2,9 +2,12 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
+from memory import get_history, add_message, clear_history
 import os
 import json
 import re
+
+PORT = int(os.getenv("PORT", 8000))
 
 # Load API key
 load_dotenv()
@@ -27,6 +30,7 @@ app = FastAPI(
 # }
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = "default"
 
 class JDRequest(BaseModel):
     job_description: str
@@ -146,19 +150,54 @@ def health_check():
 # Java: @PostMapping("/api/chat")
 @app.post("/api/chat")
 def chat(request: ChatRequest):
-    """Simple chat with HireIQ"""
-    
-    system_prompt = """You are HireIQ, an AI-powered job application 
-    assistant. Help job seekers with resumes, interviews, and career advice.
-    Be friendly, direct, and give specific actionable advice."""
-    
-    response = call_llm(system_prompt, request.message, temperature=0.7)
-    
-    # Java equivalent: return ResponseEntity.ok(new ChatResponse(response))
+    """Chat with persistent Redis memory"""
+
+    # Get conversation history from Redis
+    history = get_history(request.session_id)
+
+    # Add user message to history
+    add_message(request.session_id, "user", request.message)
+
+    # Build messages for LLM — system + full history
+    messages = [
+        {
+            "role": "system",
+            "content": """You are HireIQ, an AI-powered job application 
+            assistant. Help job seekers with resumes, interviews, and 
+            career advice. Be friendly, direct, and specific."""
+        },
+        *history,  # Full conversation history from Redis
+        {
+            "role": "user",
+            "content": request.message
+        }
+    ]
+
+    # Call Groq with full history
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        max_tokens=1024,
+        temperature=0.7
+    )
+
+    ai_response = response.choices[0].message.content
+
+    # Save AI response to Redis
+    add_message(request.session_id, "assistant", ai_response)
+
     return {
         "status": "success",
-        "response": response
+        "response": ai_response,
+        "session_id": request.session_id
     }
+
+# Clear chat history endpoint
+@app.delete("/api/chat/{session_id}")
+def clear_chat(session_id: str):
+    """Clear conversation history for a session"""
+    clear_history(session_id)
+    return {"status": "success", "message": "Chat history cleared"}
 
 # JD Analyzer endpoint
 # Java: @PostMapping("/api/analyze-jd")
