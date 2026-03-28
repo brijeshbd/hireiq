@@ -9,6 +9,8 @@ from company_research import research_company
 from fastapi.middleware.cors import CORSMiddleware
 from urllib.parse import urlparse
 from analytics import track_request, get_daily_stats, get_total_requests_today
+from datetime import datetime
+import psycopg2
 import hashlib
 import time
 import os
@@ -222,13 +224,25 @@ def get_cache_key(text: str) -> str:
 
 def get_cached_response(text: str) -> str:
     """Check Redis cache for existing response"""
-    key = f"hireiq:cache:{get_cache_key(text)}"
-    return r.get(key)
+    if not REDIS_AVAILABLE:
+        return None
+    try:
+        from memory import r
+        key = f"hireiq:cache:{get_cache_key(text)}"
+        return r.get(key)
+    except:
+        return None
 
 def cache_response(text: str, response: str, ttl: int = 3600):
     """Cache response for 1 hour"""
-    key = f"hireiq:cache:{get_cache_key(text)}"
-    r.setex(key, ttl, response)
+    if not REDIS_AVAILABLE:
+        return
+    try:
+        from memory import r
+        key = f"hireiq:cache:{get_cache_key(text)}"
+        r.setex(key, ttl, response)
+    except:
+        pass
 
 # ── API ENDPOINTS ─────────────────────────────────────────────
 
@@ -237,22 +251,13 @@ def cache_response(text: str, response: str, ttl: int = 3600):
 @app.get("/health")
 def health_check():
     """
-    Enhanced health check with system stats.
-    UptimeRobot pings this every 5 minutes.
+    Simple health check for UptimeRobot monitoring.
+    Returns 200 OK if service is up.
     """
-    try:
-        # Check Redis connection
-        r.ping()
-        redis_status = "connected"
-    except:
-        redis_status = "disconnected"
-
     return {
-        "status":          "healthy",
-        "service":         "HireIQ AI Service",
-        "redis":           redis_status,
-        "total_requests":  get_total_requests_today(),
-        "timestamp":       datetime.now().isoformat()
+        "status": "ok",
+        "service": "HireIQ API",
+        "version": "1.0.0"
     }
 
 @app.get("/health/detailed")
@@ -266,6 +271,7 @@ def health_check_detailed():
         "service": "HireIQ API",
         "groq_configured": client is not None,
         "redis_available": REDIS_AVAILABLE,
+        "timestamp": datetime.now().isoformat()
     }
     
     # Check database
