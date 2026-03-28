@@ -10,6 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from urllib.parse import urlparse
 from analytics import track_request, get_daily_stats, get_total_requests_today
 from datetime import datetime
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
+from security import security_check
 import psycopg2
 import hashlib
 import time
@@ -46,6 +51,12 @@ app = FastAPI(
     description="AI-powered job application assistant",
     version="1.0.0"
 )
+
+# Rate limiter — 20 requests per hour per IP
+# Java equivalent: new RateLimiter(20, Duration.ofHours(1))
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add CORS middleware after app is created
 app.add_middleware(
@@ -289,10 +300,21 @@ def health_check_detailed():
 # Chat endpoint
 # Java: @PostMapping("/api/chat")
 @app.post("/api/chat")
+@limiter.limit("20/hour")
 def chat(request: ChatRequest):
     """Chat with persistent Redis memory"""
     start_time = time.time()  # Start timer
-    # Get conversation history from Redis
+# Security check
+    security = security_check(body.message)
+    if not security["safe"]:
+        return {
+            "status":  "blocked",
+            "reason":  security["reason"],
+            "message": "Your request was blocked for security reasons."
+        }
+
+    # Use scrubbed text — PII removed!
+    safe_message = security["text"]
     
     try:
         history = get_history(request.session_id)
@@ -353,6 +375,7 @@ def clear_chat(session_id: str):
 # JD Analyzer endpoint
 # Java: @PostMapping("/api/analyze-jd")
 @app.post("/api/analyze-jd")
+@limiter.limit("15/hour")
 def analyze_jd(request: JDRequest):
     """Analyze JD with caching"""
     start_time = time.time()
@@ -387,6 +410,7 @@ def analyze_jd(request: JDRequest):
 # Resume Analyzer endpoint — NEW THIS WEEK! 🆕
 # Java: @PostMapping("/api/analyze-resume")
 @app.post("/api/analyze-resume")
+@limiter.limit("10/hour")  # Resume analysis is expensive
 def analyze_resume(request: ResumeAnalysisRequest):
     """
     Compare resume against job description.
@@ -414,6 +438,7 @@ Return ONLY JSON with match score and analysis."""
 # Cover Letter Generator
 # Java: @PostMapping("/api/cover-letter")
 @app.post("/api/cover-letter")
+@limiter.limit("10/hour")
 def generate_cover_letter(request: CoverLetterRequest):
     """
     Generate a tailored cover letter based on
@@ -528,3 +553,15 @@ def get_analytics_by_date(date: str):
     """Get analytics for a specific date (YYYY-MM-DD)"""
     stats = get_daily_stats(date)
     return {"status": "success", "stats": stats}
+
+@app.post("/api/security/test")
+def test_security(request: Request, body: ChatRequest):
+    """
+    Test the security layer.
+    Shows what security checks do to input.
+    """
+    result = security_check(body.message)
+    return {
+        "input":    body.message,
+        "result":   result
+    }
