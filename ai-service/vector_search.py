@@ -12,15 +12,21 @@ print("Loading embedding model...")
 model = SentenceTransformer('all-MiniLM-L6-v2')  # Small, fast, free
 print("Model loaded! ✅")
 
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
 # Connect to PostgreSQL
 # Java equivalent: DriverManager.getConnection(url, user, password)
 def get_db():
     return psycopg2.connect(
-        dbname=os.getenv("DB_NAME", "hireiq"),
-        user=os.getenv("DB_USER", "postgres"),  # your Mac username
-        password=os.getenv("DB_PASSWORD", "root"),
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432")
+        dbname=os.getenv("DB_NAME", DB_NAME),
+        user=os.getenv("DB_USER", DB_USER),
+        password=os.getenv("DB_PASSWORD", DB_PASSWORD),
+        host=os.getenv("DB_HOST", DB_HOST),
+        port=os.getenv("DB_PORT", DB_PORT)
     )
 
 # ── EMBEDDINGS ────────────────────────────────────────────────

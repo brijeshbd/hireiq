@@ -10,13 +10,20 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 model  = SentenceTransformer('all-MiniLM-L6-v2')
 
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
+
 def get_db():
     return psycopg2.connect(
-        dbname=os.getenv("DB_NAME", "hireiq"),
-        user=os.getenv("DB_USER", "postgres"),
-        password=os.getenv("DB_PASSWORD", "root"),
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432")
+        dbname=os.getenv("DB_NAME", DB_NAME),
+        user=os.getenv("DB_USER", DB_USER),
+        password=os.getenv("DB_PASSWORD", DB_PASSWORD),
+        host=os.getenv("DB_HOST", DB_HOST),
+        port=os.getenv("DB_PORT", DB_PORT)
     )
 
 # ── STEP 1: CHUNKING ──────────────────────────────────────────
