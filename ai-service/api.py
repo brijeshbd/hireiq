@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from memory import get_history, add_message, clear_history
 from rag import answer_with_rag
 from interview_bot import InterviewSession
+from company_research import research_company
 import os
 import json
 import re
@@ -60,6 +61,9 @@ class InterviewStartRequest(BaseModel):
 class InterviewAnswerRequest(BaseModel):
     session_id: str
     answer: str
+    
+class CompanyResearchRequest(BaseModel):
+    company_name: str
 
 # ── PROMPTS ───────────────────────────────────────────────────
 JD_ANALYZER_PROMPT = """You are an expert job description analyzer.
@@ -347,3 +351,9 @@ def submit_answer(request: InterviewAnswerRequest):
         "question_number": session.current_q + 1,
         "next_question":   next_question
     }
+    
+@app.post("/api/research-company")
+def research_company_endpoint(request: CompanyResearchRequest):
+    """AI agent researches a company autonomously"""
+    result = research_company(request.company_name)
+    return result
