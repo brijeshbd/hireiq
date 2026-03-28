@@ -2,17 +2,27 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
-from memory import get_history, add_message, clear_history
+from memory import get_history, add_message, clear_history, REDIS_AVAILABLE
 from rag import answer_with_rag
 from interview_bot import InterviewSession
 from company_research import research_company
 from fastapi.middleware.cors import CORSMiddleware
 from urllib.parse import urlparse
+from analytics import track_request, get_daily_stats, get_total_requests_today
+import hashlib
+import time
 import os
 import json
 import re
 
 PORT = int(os.getenv("PORT", 8000))
+
+# LangSmith auto-traces all LangChain calls
+# Just setting env vars is enough — no code changes needed!
+os.environ["LANGCHAIN_TRACING_V2"]  = os.getenv("LANGCHAIN_TRACING_V2", "false")
+os.environ["LANGCHAIN_API_KEY"]     = os.getenv("LANGCHAIN_API_KEY", "")
+os.environ["LANGCHAIN_PROJECT"]     = os.getenv("LANGCHAIN_PROJECT", "hireiq")
+os.environ["LANGCHAIN_ENDPOINT"]    = os.getenv("LANGCHAIN_ENDPOINT", "")
 
 interview_sessions = {}
 
@@ -201,6 +211,24 @@ def parse_json_response(raw_response):
         if json_match:
             return json.loads(json_match.group())
         return {"error": "Could not parse response"}
+    
+
+def get_cache_key(text: str) -> str:
+    """
+    Generate cache key from text.
+    Java equivalent: DigestUtils.md5Hex(text)
+    """
+    return hashlib.md5(text.lower().strip().encode()).hexdigest()
+
+def get_cached_response(text: str) -> str:
+    """Check Redis cache for existing response"""
+    key = f"hireiq:cache:{get_cache_key(text)}"
+    return r.get(key)
+
+def cache_response(text: str, response: str, ttl: int = 3600):
+    """Cache response for 1 hour"""
+    key = f"hireiq:cache:{get_cache_key(text)}"
+    r.setex(key, ttl, response)
 
 # ── API ENDPOINTS ─────────────────────────────────────────────
 
@@ -208,53 +236,98 @@ def parse_json_response(raw_response):
 # Java: @GetMapping("/health")
 @app.get("/health")
 def health_check():
-    return {"status": "HireIQ is running! 🤖"}
+    """
+    Production health check for UptimeRobot monitoring.
+    Returns 200 OK if service is up.
+    """
+    return {
+        "status": "ok",
+        "service": "HireIQ API",
+        "version": "1.0.0",
+        "timestamp": os.popen('date -u +"%Y-%m-%dT%H:%M:%SZ"').read().strip()
+    }
+
+@app.get("/health/detailed")
+def health_check_detailed():
+    """
+    Detailed health check with dependency status.
+    For internal monitoring only.
+    """
+    health = {
+        "status": "healthy",
+        "service": "HireIQ API",
+        "groq_configured": client is not None,
+        "redis_available": REDIS_AVAILABLE,
+    }
+    
+    # Check database
+    try:
+        conn = get_db_from_url()
+        conn.close()
+        health["database_available"] = True
+    except Exception as e:
+        health["database_available"] = False
+        health["status"] = "degraded"
+        print(f"Database health check failed: {e}")
+    
+    return health
 
 # Chat endpoint
 # Java: @PostMapping("/api/chat")
 @app.post("/api/chat")
 def chat(request: ChatRequest):
     """Chat with persistent Redis memory"""
-
+    start_time = time.time()  # Start timer
     # Get conversation history from Redis
-    history = get_history(request.session_id)
+    
+    try:
+        history = get_history(request.session_id)
 
-    # Add user message to history
-    add_message(request.session_id, "user", request.message)
+        # Add user message to history
+        add_message(request.session_id, "user", request.message)
 
-    # Build messages for LLM — system + full history
-    messages = [
-        {
-            "role": "system",
-            "content": """You are HireIQ, an AI-powered job application 
-            assistant. Help job seekers with resumes, interviews, and 
-            career advice. Be friendly, direct, and specific."""
-        },
-        *history,  # Full conversation history from Redis
-        {
-            "role": "user",
-            "content": request.message
+        # Build messages for LLM — system + full history
+        messages = [
+            {
+                "role": "system",
+                "content": """You are HireIQ, an AI-powered job application 
+                assistant. Help job seekers with resumes, interviews, and 
+                career advice. Be friendly, direct, and specific."""
+            },
+            *history,  # Full conversation history from Redis
+            {
+                "role": "user",
+                "content": request.message
+            }
+        ]
+
+        # Call Groq with full history
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            max_tokens=1024,
+            temperature=0.7
+        )
+
+        ai_response = response.choices[0].message.content
+
+        # Save AI response to Redis
+        add_message(request.session_id, "assistant", ai_response)
+        
+        # Track successful request
+        latency = (time.time() - start_time) * 1000
+        track_request("chat", True, latency)
+
+        return {
+            "status": "success",
+            "response": ai_response,
+            "session_id": request.session_id
         }
-    ]
-
-    # Call Groq with full history
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,
-        max_tokens=1024,
-        temperature=0.7
-    )
-
-    ai_response = response.choices[0].message.content
-
-    # Save AI response to Redis
-    add_message(request.session_id, "assistant", ai_response)
-
-    return {
-        "status": "success",
-        "response": ai_response,
-        "session_id": request.session_id
-    }
+    except Exception as e:
+        # Track failed request
+        latency = (time.time() - start_time) * 1000
+        track_request("chat", False, latency)
+        raise e
 
 # Clear chat history endpoint
 @app.delete("/api/chat/{session_id}")
@@ -267,18 +340,36 @@ def clear_chat(session_id: str):
 # Java: @PostMapping("/api/analyze-jd")
 @app.post("/api/analyze-jd")
 def analyze_jd(request: JDRequest):
-    """Analyze a job description and extract structured data"""
-    
-    user_message = f"Extract all information from this job description:\n\n{request.job_description}\n\nReturn ONLY JSON."
-    
-    raw_response = call_llm(JD_ANALYZER_PROMPT, user_message, temperature=0.1)
-    result = parse_json_response(raw_response)
-    
-    return {
-        "status": "success",
-        "analysis": result
-    }
+    """Analyze JD with caching"""
+    start_time = time.time()
 
+    # Check cache first
+    cached = get_cached_response(request.job_description)
+    if cached:
+        track_request("jd_analyzer", True, 0)
+        return {
+            "status":   "success",
+            "analysis": json.loads(cached),
+            "cached":   True  # Tell frontend it was cached!
+        }
+
+    # Not cached — call LLM
+    user_message = f"Extract all information:\n\n{request.job_description}"
+    raw_response = call_llm(JD_ANALYZER_PROMPT, user_message, temperature=0.1)
+    result       = parse_json_response(raw_response)
+
+    # Cache for next time
+    cache_response(request.job_description, json.dumps(result))
+
+    latency = (time.time() - start_time) * 1000
+    track_request("jd_analyzer", True, latency)
+
+    return {
+        "status":   "success",
+        "analysis": result,
+        "cached":   False
+    }
+    
 # Resume Analyzer endpoint — NEW THIS WEEK! 🆕
 # Java: @PostMapping("/api/analyze-resume")
 @app.post("/api/analyze-resume")
@@ -401,3 +492,25 @@ def research_company_endpoint(request: CompanyResearchRequest):
     """AI agent researches a company autonomously"""
     result = research_company(request.company_name)
     return result
+
+@app.get("/api/analytics")
+def get_analytics():
+    """
+    Get usage analytics for today.
+    Shows which features are most used.
+    """
+    stats = get_daily_stats()
+    total = get_total_requests_today()
+
+    return {
+        "status":         "success",
+        "today":          stats,
+        "total_requests": total,
+        "message":        "HireIQ Analytics Dashboard"
+    }
+
+@app.get("/api/analytics/{date}")
+def get_analytics_by_date(date: str):
+    """Get analytics for a specific date (YYYY-MM-DD)"""
+    stats = get_daily_stats(date)
+    return {"status": "success", "stats": stats}
