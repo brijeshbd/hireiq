@@ -19,7 +19,13 @@ interview_sessions = {}
 # Load API key
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+groq_api_key = os.getenv("GROQ_API_KEY")
+if not groq_api_key:
+    print("⚠️  WARNING: GROQ_API_KEY not set. AI features will not work.")
+    print("Set GROQ_API_KEY environment variable to enable LLM features.")
+    client = None
+else:
+    client = Groq(api_key=groq_api_key)
 
 # ── FASTAPI APP ───────────────────────────────────────────────
 # This is like @SpringBootApplication in Java
@@ -169,6 +175,9 @@ def call_llm(system_prompt, user_message, temperature=0.7):
     Generic function to call Groq LLM.
     Java equivalent: a reusable service method
     """
+    if not client:
+        return {"error": "GROQ_API_KEY not configured. Please set environment variable."}
+    
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
