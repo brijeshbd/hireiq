@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const API = 'http://localhost:8000';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SESSION_ID = 'interview-' + Math.random().toString(36).substr(2, 9);
 
 function Interview() {

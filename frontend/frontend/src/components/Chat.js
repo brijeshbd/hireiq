@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-const API = 'http://localhost:8000';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SESSION_ID = 'user-' + Math.random().toString(36).substr(2, 9);
 
 function Chat() {

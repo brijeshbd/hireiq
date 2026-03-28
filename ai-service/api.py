@@ -7,6 +7,7 @@ from rag import answer_with_rag
 from interview_bot import InterviewSession
 from company_research import research_company
 from fastapi.middleware.cors import CORSMiddleware
+from urllib.parse import urlparse
 import os
 import json
 import re
@@ -31,11 +32,35 @@ app = FastAPI(
 # Add CORS middleware after app is created
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production set to your Vercel URL
+    allow_origins=[
+        "http://localhost:3000",
+        "https://hireiq-frontend-ivory.vercel.app",  # your Vercel URL
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def get_db_from_url():
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        parsed = urlparse(database_url)
+        return psycopg2.connect(
+            dbname=parsed.path[1:],
+            user=parsed.username,
+            password=parsed.password,
+            host=parsed.hostname,
+            port=parsed.port
+        )
+    # Fallback to local
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME", "hireiq"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", "root"),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=int(os.getenv("DB_PORT", 5432))
+    )
 
 # ── REQUEST MODELS ────────────────────────────────────────────
 # Like @RequestBody DTOs in Spring Boot
