@@ -6,11 +6,21 @@ from memory import get_history, add_message, clear_history
 from rag import answer_with_rag
 from interview_bot import InterviewSession
 from company_research import research_company
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
 import re
 
 PORT = int(os.getenv("PORT", 8000))
+
+# Add after app = FastAPI(...)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production set to your Vercel URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 interview_sessions = {}
 
