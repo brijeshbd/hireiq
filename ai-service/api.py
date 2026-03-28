@@ -13,15 +13,6 @@ import re
 
 PORT = int(os.getenv("PORT", 8000))
 
-# Add after app = FastAPI(...)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production set to your Vercel URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 interview_sessions = {}
 
 # Load API key
@@ -35,6 +26,15 @@ app = FastAPI(
     title="HireIQ API",
     description="AI-powered job application assistant",
     version="1.0.0"
+)
+
+# Add CORS middleware after app is created
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production set to your Vercel URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── REQUEST MODELS ────────────────────────────────────────────
