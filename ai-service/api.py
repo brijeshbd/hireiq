@@ -3,11 +3,15 @@ from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
 from memory import get_history, add_message, clear_history
+from rag import answer_with_rag
+from interview_bot import InterviewSession
 import os
 import json
 import re
 
 PORT = int(os.getenv("PORT", 8000))
+
+interview_sessions = {}
 
 # Load API key
 load_dotenv()
@@ -44,6 +48,18 @@ class CoverLetterRequest(BaseModel):
     job_description: str
     company_name: str
     tone: str = "professional"  # default value — like Java optional param
+    
+class RAGRequest(BaseModel):
+    question: str
+    
+class InterviewStartRequest(BaseModel):
+    role: str
+    difficulty: str = "medium"
+    session_id: str
+
+class InterviewAnswerRequest(BaseModel):
+    session_id: str
+    answer: str
 
 # ── PROMPTS ───────────────────────────────────────────────────
 JD_ANALYZER_PROMPT = """You are an expert job description analyzer.
@@ -276,4 +292,58 @@ the candidate's most relevant experience."""
         "status": "success",
         "cover_letter": cover_letter,
         "company": request.company_name
+    }
+    
+    
+    # RAG Question Answering — NEW! 🆕
+@app.post("/api/ask")
+def ask_knowledge_base(request: RAGRequest):
+    """
+    Answer career questions using RAG.
+    Grounded in real documents — no hallucination!
+    """
+    result = answer_with_rag(request.question)
+    return {
+        "status":      "success",
+        "answer":      result["answer"],
+        "sources":     result["sources"],
+        "chunks_used": result["chunks_used"]
+    }
+    
+@app.post("/api/interview/start")
+def start_interview(request: InterviewStartRequest):
+    """Start a new interview session"""
+    session = InterviewSession(request.role, request.difficulty)
+    interview_sessions[request.session_id] = session
+    question = session.generate_question()
+    return {
+        "status": "success",
+        "question_number": 1,
+        "total_questions": session.max_questions,
+        "question": question
+    }
+
+@app.post("/api/interview/answer")
+def submit_answer(request: InterviewAnswerRequest):
+    """Submit answer and get feedback"""
+    session = interview_sessions.get(request.session_id)
+    if not session:
+        return {"error": "Session not found"}
+
+    evaluation = session.evaluate_answer(request.answer)
+
+    if session.is_complete():
+        final = session.generate_final_report()
+        return {
+            "status":    "completed",
+            "evaluation": evaluation,
+            "final_report": final
+        }
+
+    next_question = session.generate_question()
+    return {
+        "status":          "continue",
+        "evaluation":      evaluation,
+        "question_number": session.current_q + 1,
+        "next_question":   next_question
     }
