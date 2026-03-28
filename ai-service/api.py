@@ -237,14 +237,22 @@ def cache_response(text: str, response: str, ttl: int = 3600):
 @app.get("/health")
 def health_check():
     """
-    Production health check for UptimeRobot monitoring.
-    Returns 200 OK if service is up.
+    Enhanced health check with system stats.
+    UptimeRobot pings this every 5 minutes.
     """
+    try:
+        # Check Redis connection
+        r.ping()
+        redis_status = "connected"
+    except:
+        redis_status = "disconnected"
+
     return {
-        "status": "ok",
-        "service": "HireIQ API",
-        "version": "1.0.0",
-        "timestamp": os.popen('date -u +"%Y-%m-%dT%H:%M:%SZ"').read().strip()
+        "status":          "healthy",
+        "service":         "HireIQ AI Service",
+        "redis":           redis_status,
+        "total_requests":  get_total_requests_today(),
+        "timestamp":       datetime.now().isoformat()
     }
 
 @app.get("/health/detailed")
