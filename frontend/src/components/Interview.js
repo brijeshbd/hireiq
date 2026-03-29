@@ -1,6 +1,15 @@
 import { useState } from 'react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Smart API URL detection
+const getAPIUrl = () => {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://hireiq-production-0fda.up.railway.app';
+  }
+  return 'http://localhost:8000';
+};
+
+const API = getAPIUrl();
 const SESSION_ID = 'interview-' + Math.random().toString(36).substr(2, 9);
 
 function Interview() {

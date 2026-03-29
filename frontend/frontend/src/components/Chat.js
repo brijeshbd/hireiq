@@ -1,6 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Smart API URL detection for different environments
+const getAPIUrl = () => {
+  // 1. Use explicit environment variable if set
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // 2. In production (Vercel), use the same origin
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    // Replace frontend domain with API domain
+    // If on Vercel, assume API is on Railway at this URL
+    return 'https://hireiq-production-0fda.up.railway.app';
+  }
+  
+  // 3. Local development fallback
+  return 'http://localhost:8000';
+};
+
+const API = getAPIUrl();
 const SESSION_ID = 'user-' + Math.random().toString(36).substr(2, 9);
 
 function Chat() {
