@@ -301,11 +301,12 @@ def health_check_detailed():
 # Java: @PostMapping("/api/chat")
 @app.post("/api/chat")
 @limiter.limit("20/hour")
-def chat(request: ChatRequest):
+def chat(request: Request, chat_request: ChatRequest):
     """Chat with persistent Redis memory"""
     start_time = time.time()  # Start timer
-# Security check
-    security = security_check(body.message)
+    
+    # Security check
+    security = security_check(chat_request.message)
     if not security["safe"]:
         return {
             "status":  "blocked",
@@ -317,10 +318,10 @@ def chat(request: ChatRequest):
     safe_message = security["text"]
     
     try:
-        history = get_history(request.session_id)
+        history = get_history(chat_request.session_id)
 
         # Add user message to history
-        add_message(request.session_id, "user", request.message)
+        add_message(chat_request.session_id, "user", chat_request.message)
 
         # Build messages for LLM — system + full history
         messages = [
@@ -333,7 +334,7 @@ def chat(request: ChatRequest):
             *history,  # Full conversation history from Redis
             {
                 "role": "user",
-                "content": request.message
+                "content": chat_request.message
             }
         ]
 
@@ -348,7 +349,7 @@ def chat(request: ChatRequest):
         ai_response = response.choices[0].message.content
 
         # Save AI response to Redis
-        add_message(request.session_id, "assistant", ai_response)
+        add_message(chat_request.session_id, "assistant", ai_response)
         
         # Track successful request
         latency = (time.time() - start_time) * 1000
@@ -357,7 +358,7 @@ def chat(request: ChatRequest):
         return {
             "status": "success",
             "response": ai_response,
-            "session_id": request.session_id
+            "session_id": chat_request.session_id
         }
     except Exception as e:
         # Track failed request
