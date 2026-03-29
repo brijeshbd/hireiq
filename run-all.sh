@@ -46,9 +46,10 @@ EOF
 fi
 
 # Start backend in background
-python -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
+python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 echo -e "${GREEN}✅ Backend started (PID: $BACKEND_PID)${NC}"
+sleep 2
 echo ""
 
 # Start Frontend (React)
