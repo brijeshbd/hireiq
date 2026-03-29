@@ -46,10 +46,12 @@ EOF
 fi
 
 # Start backend in background
-python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
+echo -e "   Starting with python3.11..."
+python3.11 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload > /tmp/hireiq-backend.log 2>&1 &
 BACKEND_PID=$!
 echo -e "${GREEN}✅ Backend started (PID: $BACKEND_PID)${NC}"
-sleep 2
+echo -e "${YELLOW}   (First start loads ML models - may take 1-2 minutes)${NC}"
+sleep 5
 echo ""
 
 # Start Frontend (React)

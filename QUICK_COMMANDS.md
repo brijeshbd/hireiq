@@ -9,12 +9,17 @@ cd ~/Documents/projects/python/hireiq && ./run-all.sh
 
 ### 🔙 Start Only Backend
 ```bash
-cd ~/Documents/projects/python/hireiq/ai-service && python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+cd ~/Documents/projects/python/hireiq/ai-service && python3.11 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 💻 Start Only Frontend
 ```bash
 cd ~/Documents/projects/python/hireiq/frontend && npm start
+```
+
+### 📦 Install Dependencies (Python 3.11 required)
+```bash
+cd ~/Documents/projects/python/hireiq/ai-service && python3.11 -m pip install -r requirements.txt
 ```
 
 ### 🧪 Test API

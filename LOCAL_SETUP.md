@@ -14,18 +14,27 @@ or
 ./quick-start.sh
 ```
 
+**Note:** First run loads ML models and takes 1-2 minutes. Subsequent runs are faster.
+
 This will start:
 - ✅ **Frontend** (React) - `http://localhost:3000`
 - ✅ **Backend API** (FastAPI) - `http://localhost:8000`
 
 ---
 
-## Manual Setup (Step by Step)
+## Prerequisites
 
-### Prerequisites
+- **Python 3.11+** (Required!) - Check: `python3.11 --version`
+- **Node.js 18+** - Check: `node --version`
 
-- **Python 3.9+** - Run: `python3 --version`
-- **Node.js 18+** - Run: `node --version` & `npm --version`
+**Install Python 3.11 if needed:**
+```bash
+# macOS with Homebrew
+brew install python@3.11
+
+# Or use pyenv
+pyenv install 3.11.15
+```
 
 ### 1️⃣ Backend (FastAPI) - Port 8000
 
@@ -46,17 +55,17 @@ DB_USER=postgres
 DB_PASSWORD=root
 EOF
 
-# Install dependencies
-pip3 install -r requirements.txt
+# Install dependencies (Python 3.11 required!)
+python3.11 -m pip install -r requirements.txt
 
-# Start backend
-python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+# Start backend (first run loads ML models - may take 1-2 min)
+python3.11 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Test backend:**
-```bash
-curl http://localhost:8000/health
-# Should return: {"status":"ok","service":"HireIQ API","version":"1.0.0"}
+**Output should show:**
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete
 ```
 
 **API Docs:** http://localhost:8000/docs
