@@ -61,15 +61,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Add CORS middleware after app is created
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://hireiq-frontend-ivory.vercel.app",  # your Vercel URL
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # ← allow all for now
+    allow_credentials=False,  # ← must be False when using "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 def get_db_from_url():
     database_url = os.getenv("DATABASE_URL")
