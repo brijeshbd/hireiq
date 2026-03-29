@@ -161,6 +161,7 @@ echo "REDIS_PORT=6379" >> .env
 ### Step 3: Start Redis (Conversation Memory)
 
 ```bash
+# ⚠️ OPEN A NEW TERMINAL WINDOW
 # In a new terminal
 redis-server
 
@@ -172,7 +173,10 @@ redis-server
 ### Step 4: Start the AI Service
 
 ```bash
+# ⚠️ OPEN ANOTHER NEW TERMINAL WINDOW
 # From ai-service directory (with venv activated)
+cd hireiq/ai-service
+source venv/bin/activate
 uvicorn api:app --reload --port 8000
 
 # You should see: "Uvicorn running on http://127.0.0.1:8000"
@@ -183,6 +187,7 @@ uvicorn api:app --reload --port 8000
 ### Step 5: Setup the Frontend (React)
 
 ```bash
+# ⚠️ OPEN YET ANOTHER NEW TERMINAL WINDOW (3rd one)
 # In a new terminal, go to frontend folder
 cd hireiq/frontend
 
