@@ -533,3 +533,8 @@ A: Yes! You can deploy frontend to Vercel, API to Railway, and database to a man
 ---
 
 **Happy job hunting! 🎯 May HireIQ help you land your dream job! 🚀**
+<img width="1469" height="837" alt="ss1" src="https://github.com/user-attachments/assets/78fe7621-4b95-4408-b632-e1fde79468b3" />
+<img width="1470" height="837" alt="ss5" src="https://github.com/user-attachments/assets/01756a4a-19b8-4e44-a65d-73b98723b9b8" />
+<img width="1470" height="836" alt="ss4" src="https://github.com/user-attachments/assets/7bea9f46-cb51-4c6f-80fd-4099821d0a67" />
+<img width="1470" height="836" alt="ss3" src="https://github.com/user-attachments/assets/ab73231a-2a38-432c-a97e-de4911e493bd" />
+<img width="1470" height="836" alt="ss2" src="https://github.com/user-attachments/assets/8610f57b-fb2a-4981-a48d-a73b586f3d9c" />
