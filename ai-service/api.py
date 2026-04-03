@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
@@ -13,7 +13,6 @@ from datetime import datetime
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from fastapi import Request
 from security import security_check
 import psycopg2
 import hashlib
@@ -296,7 +295,6 @@ def health_check_detailed():
 # Chat endpoint
 # Java: @PostMapping("/api/chat")
 @app.post("/api/chat")
-@limiter.limit("20/hour")
 def chat(request: Request, chat_request: ChatRequest):
     """Chat with persistent Redis memory"""
     start_time = time.time()  # Start timer
@@ -372,7 +370,6 @@ def clear_chat(session_id: str):
 # JD Analyzer endpoint
 # Java: @PostMapping("/api/analyze-jd")
 @app.post("/api/analyze-jd")
-@limiter.limit("15/hour")
 def analyze_jd(request: JDRequest):
     """Analyze JD with caching"""
     start_time = time.time()
@@ -407,7 +404,6 @@ def analyze_jd(request: JDRequest):
 # Resume Analyzer endpoint — NEW THIS WEEK! 🆕
 # Java: @PostMapping("/api/analyze-resume")
 @app.post("/api/analyze-resume")
-@limiter.limit("10/hour")  # Resume analysis is expensive
 def analyze_resume(request: ResumeAnalysisRequest):
     """
     Compare resume against job description.
@@ -435,7 +431,6 @@ Return ONLY JSON with match score and analysis."""
 # Cover Letter Generator
 # Java: @PostMapping("/api/cover-letter")
 @app.post("/api/cover-letter")
-@limiter.limit("10/hour")
 def generate_cover_letter(request: CoverLetterRequest):
     """
     Generate a tailored cover letter based on
